@@ -132,9 +132,11 @@ class Fluent::CloudwatchInput < Fluent::Input
 
   def output
     @metric_name.split(",").each {|m|
-      name, s = m.split(":")
-      s ||= @statistics
+      name, s, key = m.split(":")
+      s = if not s or s.empty? then @statistics else s end
+      key = if not key or key.empty? then name else key end
       now = Time.now - @offset
+
       statistics = @cw.get_metric_statistics({
         :namespace   => @namespace,
         :metric_name => name,
@@ -150,12 +152,13 @@ class Fluent::CloudwatchInput < Fluent::Input
 
         # unix time
         catch_time = datapoint[:timestamp].to_i
-        router.emit(tag, catch_time, { name => data })
+        router.emit(tag, catch_time, { key => data })
       elsif @emit_zero
-        router.emit(tag, now.to_i, { name => 0 })
+        router.emit(tag, now.to_i, { key => 0 })
       else
         log.warn "cloudwatch: #{@namespace} #{@dimensions_name} #{@dimensions_value} #{name} #{s} datapoints is empty"
       end
     }
+
   end
 end
